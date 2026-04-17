@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f12" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Ghost Photo</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <div class="stage" id="stage">
+      <video id="preview" playsinline muted></video>
+      <img id="ghost" class="ghost hidden" alt="" />
+      <div id="placeholder" class="placeholder" aria-hidden="true">
+        <p>Open camera + pick reference photo</p>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <label class="btn btn-file">
+        Reference photo
+        <input type="file" id="file" accept="image/*" />
+      </label>
+      <button type="button" class="btn" id="btn-camera">Open camera</button>
+      <button type="button" class="btn btn-primary" id="btn-capture" hidden disabled>
+        Take photo
+      </button>
+      <button type="button" class="btn btn-ghost" id="btn-stop" hidden>Stop camera</button>
+      <button type="button" class="btn btn-ghost" id="btn-clear" hidden>Clear photo</button>
+
+      <div class="row">
+        <label class="lbl" for="opacity">Ghost opacity</label>
+        <input type="range" id="opacity" min="0" max="100" value="45" />
+      </div>
+      <div class="row">
+        <label class="lbl" for="scale">Ghost scale</label>
+        <input type="range" id="scale" min="50" max="200" value="100" />
+      </div>
+      <label class="check">
+        <input type="checkbox" id="mirror-camera" />
+        Mirror camera
+      </label>
+      <label class="check">
+        <input type="checkbox" id="mirror" />
+        Mirror ghost (match mirrored preview)
+      </label>
+    </div>
+  </div>
+  <p id="err" class="err" role="alert" hidden></p>
+  <script src="app.js" defer></script>
+</body>
+</html>

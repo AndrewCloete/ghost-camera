@@ -1,0 +1,6 @@
+.cursor
+.git
+.gitignore
+README.md
+justfile
+.dockerignore
