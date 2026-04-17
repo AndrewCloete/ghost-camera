@@ -34,6 +34,11 @@
       <button type="button" class="btn btn-ghost" id="btn-clear" hidden>Clear photo</button>
 
       <div class="row">
+        <label class="lbl" for="camera-select">Camera</label>
+        <select id="camera-select" class="select" aria-label="Camera device"></select>
+      </div>
+
+      <div class="row">
         <label class="lbl" for="opacity">Ghost opacity</label>
         <input type="range" id="opacity" min="0" max="100" value="45" />
       </div>
@@ -49,9 +54,16 @@
         <input type="checkbox" id="mirror" />
         Mirror ghost (match mirrored preview)
       </label>
+
+      <section id="exif-panel" class="exif-panel" hidden aria-label="Reference photo EXIF">
+        <div class="exif-heading">Reference EXIF</div>
+        <dl id="exif-dl" class="exif-dl"></dl>
+        <p id="exif-empty" class="exif-empty" hidden></p>
+      </section>
     </div>
   </div>
   <p id="err" class="err" role="alert" hidden></p>
+  <script src="vendor/exifr.js"></script>
   <script src="app.js" defer></script>
 </body>
 </html>
