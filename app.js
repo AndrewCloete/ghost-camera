@@ -14,6 +14,7 @@ const mirrorEl = document.getElementById("mirror");
 const err = document.getElementById("err");
 const cameraSelect = document.getElementById("camera-select");
 const btnRefreshCameras = document.getElementById("btn-refresh-cameras");
+const cameraHint = document.getElementById("camera-hint");
 
 const CAMERA_STORAGE_KEY = "ghost-photo-device-id";
 
@@ -128,8 +129,44 @@ function clearCameraRefreshTimers() {
 }
 
 /**
- * Android Chrome often omits or delays enumerateDevices entries until after a live
- * track exists; merge with MediaStreamTrack.getSettings().deviceId.
+ * deviceId often missing in getSettings() until after first frame on Android;
+ * constraints can still hold deviceId when that was used to open the camera.
+ * @param {MediaStreamTrack} track
+ */
+function extractDeviceIdFromTrack(track) {
+  const s = track.getSettings?.();
+  if (s?.deviceId) {
+    const a = String(s.deviceId).trim();
+    if (a) return a;
+  }
+
+  const cons = track.getConstraints?.();
+  const v = cons?.video;
+  if (v && typeof v === "object") {
+    const d = v.deviceId;
+    if (typeof d === "string") {
+      const b = d.trim();
+      if (b) return b;
+    }
+    if (d && typeof d === "object") {
+      if (typeof d.exact === "string" && d.exact.trim()) return d.exact.trim();
+      if (typeof d.ideal === "string" && d.ideal.trim()) return d.ideal.trim();
+    }
+  }
+
+  try {
+    const cap = track.getCapabilities?.();
+    const cid = cap?.deviceId;
+    if (typeof cid === "string" && cid.trim()) return cid.trim();
+  } catch {
+    /* optional */
+  }
+
+  return "";
+}
+
+/**
+ * Android: merge enumerateDevices + active track (settings / constraints).
  * @returns {Promise<{ deviceId: string, label: string }[]>}
  */
 async function gatherVideoDevicesForPicker() {
@@ -155,12 +192,34 @@ async function gatherVideoDevicesForPicker() {
 
   if (stream) {
     for (const track of stream.getVideoTracks()) {
-      const s = track.getSettings();
-      push(s.deviceId, track.label);
+      const id = extractDeviceIdFromTrack(track);
+      if (id) {
+        push(id, track.label);
+      }
     }
   }
 
   return out;
+}
+
+function updateCameraHint() {
+  if (!cameraHint) return;
+  if (!stream) {
+    cameraHint.hidden = true;
+    cameraHint.textContent = "";
+    return;
+  }
+  const track = stream.getVideoTracks()[0];
+  if (!track) {
+    cameraHint.hidden = true;
+    return;
+  }
+  const did = extractDeviceIdFromTrack(track);
+  const s = track.getSettings?.() || {};
+  cameraHint.textContent = did
+    ? `deviceId: ${did}`
+    : `deviceId not in settings yet — track.id: ${track.id} · ${s.width ?? "?"}×${s.height ?? "?"}`;
+  cameraHint.hidden = false;
 }
 
 function scheduleCameraListRefresh() {
@@ -204,6 +263,7 @@ async function refreshCameraList() {
       fallback.textContent = "Auto (back camera)";
       cameraSelect.append(fallback);
     }
+    updateCameraHint();
   }
 }
 
@@ -224,6 +284,16 @@ async function attachStream(newStream) {
   await video.play();
   setCaptureReady();
   scheduleCameraListRefresh();
+
+  if (typeof video.requestVideoFrameCallback === "function") {
+    video.requestVideoFrameCallback(() => {
+      void refreshCameraList();
+    });
+  } else {
+    video.addEventListener("loadeddata", () => void refreshCameraList(), {
+      once: true,
+    });
+  }
 }
 
 btnCamera.addEventListener("click", async () => {
@@ -360,6 +430,10 @@ btnStop.addEventListener("click", () => {
     stream = null;
   }
   video.srcObject = null;
+  if (cameraHint) {
+    cameraHint.hidden = true;
+    cameraHint.textContent = "";
+  }
   btnCamera.hidden = false;
   btnStop.hidden = true;
   btnCapture.hidden = true;

@@ -182,6 +182,16 @@ body {
   font-size: 0.8rem;
 }
 
+.camera-hint {
+  flex: 1 1 100%;
+  margin: -0.15rem 0 0;
+  padding: 0 0.25rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #7a7a88;
+  word-break: break-all;
+}
+
 .select {
   flex: 1;
   min-width: 0;
