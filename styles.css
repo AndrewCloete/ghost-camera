@@ -4,6 +4,10 @@
   box-sizing: border-box;
 }
 
+html {
+  color-scheme: dark;
+}
+
 html,
 body {
   margin: 0;
@@ -163,12 +167,18 @@ body {
   flex: 1;
   min-width: 0;
   max-width: 100%;
+  min-height: 2.75rem;
   padding: 0.5rem 0.65rem;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.15);
   background: rgba(255, 255, 255, 0.06);
   color: #e8e8ed;
-  font-size: 0.88rem;
+  font-size: 1rem;
+}
+
+.select option {
+  background: #1a1a22;
+  color: #e8e8ed;
 }
 
 .check {

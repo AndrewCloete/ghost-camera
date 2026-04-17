@@ -241,32 +241,56 @@ async function getCameraStream(deviceId) {
   }
 }
 
+function scheduleCameraListRefresh() {
+  void refreshCameraList();
+  setTimeout(() => void refreshCameraList(), 150);
+  setTimeout(() => void refreshCameraList(), 500);
+}
+
 async function refreshCameraList() {
   if (!navigator.mediaDevices?.enumerateDevices || !cameraSelect) return;
   fillingCameraSelect = true;
   const prev = cameraSelect.value;
   const saved = sessionStorage.getItem(CAMERA_STORAGE_KEY) || "";
-  const devices = (await navigator.mediaDevices.enumerateDevices()).filter(
-    (d) => d.kind === "videoinput"
-  );
-  cameraSelect.innerHTML = "";
-  const auto = document.createElement("option");
-  auto.value = "";
-  auto.textContent = "Auto (back camera)";
-  cameraSelect.append(auto);
-  devices.forEach((d, i) => {
-    const opt = document.createElement("option");
-    opt.value = d.deviceId;
-    const raw = d.label?.trim();
-    opt.textContent = raw || `Camera ${i + 1}`;
-    cameraSelect.append(opt);
-  });
-  const pick =
-    (prev && [...cameraSelect.options].some((o) => o.value === prev) && prev) ||
-    (saved && [...cameraSelect.options].some((o) => o.value === saved) && saved) ||
-    "";
-  cameraSelect.value = pick;
-  fillingCameraSelect = false;
+  try {
+    cameraSelect.innerHTML = "";
+    const auto = document.createElement("option");
+    auto.value = "";
+    auto.textContent = "Auto (back camera)";
+    cameraSelect.append(auto);
+
+    try {
+      const raw = await navigator.mediaDevices.enumerateDevices();
+      const devices = raw.filter((d) => {
+        if (d.kind !== "videoinput") return false;
+        const id = typeof d.deviceId === "string" ? d.deviceId.trim() : "";
+        return id.length > 0;
+      });
+      devices.forEach((d, i) => {
+        const opt = document.createElement("option");
+        opt.value = d.deviceId.trim();
+        const label = d.label?.trim();
+        opt.textContent = label || `Camera ${i + 1}`;
+        cameraSelect.append(opt);
+      });
+    } catch {
+      /* keep Auto only */
+    }
+
+    const pick =
+      (prev && [...cameraSelect.options].some((o) => o.value === prev) && prev) ||
+      (saved && [...cameraSelect.options].some((o) => o.value === saved) && saved) ||
+      "";
+    cameraSelect.value = pick;
+  } finally {
+    fillingCameraSelect = false;
+    if (cameraSelect.options.length === 0) {
+      const fallback = document.createElement("option");
+      fallback.value = "";
+      fallback.textContent = "Auto (back camera)";
+      cameraSelect.append(fallback);
+    }
+  }
 }
 
 function rememberCameraChoice(deviceId) {
@@ -285,6 +309,7 @@ async function attachStream(newStream) {
   video.srcObject = stream;
   await video.play();
   setCaptureReady();
+  scheduleCameraListRefresh();
 }
 
 btnCamera.addEventListener("click", async () => {
@@ -297,7 +322,6 @@ btnCamera.addEventListener("click", async () => {
     const id = cameraSelect.value;
     await attachStream(await getCameraStream(id || undefined));
     rememberCameraChoice(id);
-    await refreshCameraList();
     btnCamera.hidden = true;
     btnStop.hidden = false;
     placeholder.classList.add("hidden");
@@ -319,7 +343,6 @@ cameraSelect.addEventListener("change", async () => {
     video.playsInline = true;
     video.muted = true;
     await attachStream(await getCameraStream(id || undefined));
-    await refreshCameraList();
   } catch (e) {
     showError(
       e instanceof Error ? e.message : "Could not switch camera."
