@@ -13,6 +13,7 @@ const mirrorCameraEl = document.getElementById("mirror-camera");
 const mirrorEl = document.getElementById("mirror");
 const err = document.getElementById("err");
 const cameraSelect = document.getElementById("camera-select");
+const btnRefreshCameras = document.getElementById("btn-refresh-cameras");
 
 const CAMERA_STORAGE_KEY = "ghost-photo-device-id";
 
@@ -20,6 +21,8 @@ const CAMERA_STORAGE_KEY = "ghost-photo-device-id";
 let stream = null;
 /** @type {boolean} */
 let fillingCameraSelect = false;
+/** @type {ReturnType<typeof setTimeout>[]} */
+let cameraRefreshTimers = [];
 /** @type {string | null} */
 let ghostObjectUrl = null;
 
@@ -117,10 +120,55 @@ async function getCameraStream(deviceId) {
   }
 }
 
+function clearCameraRefreshTimers() {
+  for (const t of cameraRefreshTimers) {
+    clearTimeout(t);
+  }
+  cameraRefreshTimers = [];
+}
+
+/**
+ * Android Chrome often omits or delays enumerateDevices entries until after a live
+ * track exists; merge with MediaStreamTrack.getSettings().deviceId.
+ * @returns {Promise<{ deviceId: string, label: string }[]>}
+ */
+async function gatherVideoDevicesForPicker() {
+  const out = [];
+  const seen = new Set();
+
+  function push(id, label) {
+    const trimmed = String(id ?? "").trim();
+    if (!trimmed || seen.has(trimmed)) return;
+    seen.add(trimmed);
+    out.push({ deviceId: trimmed, label: String(label ?? "").trim() });
+  }
+
+  try {
+    const raw = await navigator.mediaDevices.enumerateDevices();
+    for (const d of raw) {
+      if (d.kind !== "videoinput") continue;
+      push(d.deviceId, d.label);
+    }
+  } catch {
+    /* enumerate failed */
+  }
+
+  if (stream) {
+    for (const track of stream.getVideoTracks()) {
+      const s = track.getSettings();
+      push(s.deviceId, track.label);
+    }
+  }
+
+  return out;
+}
+
 function scheduleCameraListRefresh() {
-  void refreshCameraList();
-  setTimeout(() => void refreshCameraList(), 150);
-  setTimeout(() => void refreshCameraList(), 500);
+  clearCameraRefreshTimers();
+  const delays = [0, 50, 200, 500, 1200, 2500, 4000];
+  for (const ms of delays) {
+    cameraRefreshTimers.push(setTimeout(() => void refreshCameraList(), ms));
+  }
 }
 
 async function refreshCameraList() {
@@ -135,23 +183,13 @@ async function refreshCameraList() {
     auto.textContent = "Auto (back camera)";
     cameraSelect.append(auto);
 
-    try {
-      const raw = await navigator.mediaDevices.enumerateDevices();
-      const devices = raw.filter((d) => {
-        if (d.kind !== "videoinput") return false;
-        const id = typeof d.deviceId === "string" ? d.deviceId.trim() : "";
-        return id.length > 0;
-      });
-      devices.forEach((d, i) => {
-        const opt = document.createElement("option");
-        opt.value = d.deviceId.trim();
-        const label = d.label?.trim();
-        opt.textContent = label || `Camera ${i + 1}`;
-        cameraSelect.append(opt);
-      });
-    } catch {
-      /* keep Auto only */
-    }
+    const devices = await gatherVideoDevicesForPicker();
+    devices.forEach((d, i) => {
+      const opt = document.createElement("option");
+      opt.value = d.deviceId;
+      opt.textContent = d.label || `Camera ${i + 1}`;
+      cameraSelect.append(opt);
+    });
 
     const pick =
       (prev && [...cameraSelect.options].some((o) => o.value === prev) && prev) ||
@@ -230,6 +268,18 @@ navigator.mediaDevices?.addEventListener?.("devicechange", () => {
   void refreshCameraList();
 });
 
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    void refreshCameraList();
+  }
+});
+
+btnRefreshCameras?.addEventListener("click", () => {
+  clearCameraRefreshTimers();
+  void refreshCameraList();
+  scheduleCameraListRefresh();
+});
+
 void refreshCameraList();
 
 function setCaptureReady() {
@@ -304,6 +354,7 @@ btnCapture.addEventListener("click", () => {
 });
 
 btnStop.addEventListener("click", () => {
+  clearCameraRefreshTimers();
   if (stream) {
     stream.getTracks().forEach((t) => t.stop());
     stream = null;

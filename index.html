@@ -33,9 +33,19 @@
       <button type="button" class="btn btn-ghost" id="btn-stop" hidden>Stop camera</button>
       <button type="button" class="btn btn-ghost" id="btn-clear" hidden>Clear photo</button>
 
-      <div class="row">
+      <div class="row row-camera">
         <label class="lbl" for="camera-select">Camera</label>
-        <select id="camera-select" class="select" aria-label="Camera device"></select>
+        <div class="camera-picker">
+          <select id="camera-select" class="select" aria-label="Camera device"></select>
+          <button
+            type="button"
+            class="btn btn-ghost btn-refresh-cams"
+            id="btn-refresh-cameras"
+            title="Reload camera list (needed on some phones)"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div class="row">
