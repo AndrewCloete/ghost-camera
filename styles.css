@@ -192,6 +192,47 @@ body {
   word-break: break-all;
 }
 
+.camera-debug {
+  flex: 1 1 100%;
+  width: 100%;
+  margin: 0.25rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 180, 80, 0.25);
+  background: rgba(30, 25, 15, 0.6);
+}
+
+.camera-debug-summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #d4a574;
+  list-style: none;
+}
+
+.camera-debug-summary::-webkit-details-marker {
+  display: none;
+}
+
+.camera-debug-pre {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem;
+  max-height: min(45vh, 320px);
+  overflow: auto;
+  font-size: 0.65rem;
+  line-height: 1.35;
+  color: #c8c8d0;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.btn-debug-copy {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+}
+
 .select {
   flex: 1;
   min-width: 0;

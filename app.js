@@ -15,6 +15,8 @@ const err = document.getElementById("err");
 const cameraSelect = document.getElementById("camera-select");
 const btnRefreshCameras = document.getElementById("btn-refresh-cameras");
 const cameraHint = document.getElementById("camera-hint");
+const cameraDebugBody = document.getElementById("camera-debug-body");
+const btnCopyDebug = document.getElementById("btn-copy-debug");
 
 const CAMERA_STORAGE_KEY = "ghost-photo-device-id";
 
@@ -222,6 +224,103 @@ function updateCameraHint() {
   cameraHint.hidden = false;
 }
 
+/**
+ * Full on-screen snapshot for mobile debugging (enumerate + tracks + env).
+ */
+async function buildCameraDebugText() {
+  const lines = [];
+  lines.push(`time: ${new Date().toISOString()}`);
+  lines.push(`isSecureContext: ${String(isSecureContext)}`);
+  lines.push(`location: ${location.href}`);
+  lines.push(`UA: ${navigator.userAgent}`);
+  lines.push(
+    `mediaDevices: ${String(!!navigator.mediaDevices)} enumerate: ${String(!!navigator.mediaDevices?.enumerateDevices)} getUserMedia: ${String(!!navigator.mediaDevices?.getUserMedia)}`
+  );
+  lines.push(
+    `video.rVFC: ${String(typeof video.requestVideoFrameCallback === "function")} · readyState: ${video.readyState} · ${video.videoWidth}x${video.videoHeight}`
+  );
+  lines.push("");
+
+  let enumErr = /** @type {string | null} */ (null);
+  /** @type {MediaDeviceInfo[]} */
+  let enumerated = [];
+  try {
+    enumerated = await navigator.mediaDevices.enumerateDevices();
+  } catch (e) {
+    enumErr = e instanceof Error ? e.message : String(e);
+  }
+  lines.push(`enumerateDevices: count=${enumerated.length}`);
+  if (enumErr) {
+    lines.push(`enumerateDevices THREW: ${enumErr}`);
+  }
+  enumerated.forEach((d, i) => {
+    const id = String(d.deviceId ?? "");
+    const lab = d.label ?? "";
+    lines.push(
+      `  [${i}] kind=${d.kind} labelLen=${lab.length} idLen=${id.length} label=${lab.slice(0, 40)}${lab.length > 40 ? "…" : ""}`
+    );
+    if (id.length) {
+      lines.push(`       idPrefix=${id.slice(0, 16)}… idSuffix=…${id.slice(-12)}`);
+    }
+  });
+  lines.push("");
+
+  if (stream) {
+    lines.push(`MediaStream active=${stream.active} id=${stream.id}`);
+    stream.getVideoTracks().forEach((t, i) => {
+      lines.push(`videoTrack[${i}] id=${t.id} label=${t.label} state=${t.readyState} muted=${t.muted}`);
+      try {
+        lines.push(`  getSettings: ${JSON.stringify(t.getSettings())}`);
+      } catch (e) {
+        lines.push(`  getSettings ERROR: ${e instanceof Error ? e.message : e}`);
+      }
+      try {
+        lines.push(`  getConstraints: ${JSON.stringify(t.getConstraints())}`);
+      } catch (e) {
+        lines.push(`  getConstraints ERROR: ${e instanceof Error ? e.message : e}`);
+      }
+      try {
+        lines.push(`  getCapabilities: ${JSON.stringify(t.getCapabilities())}`);
+      } catch (e) {
+        lines.push(`  getCapabilities ERROR: ${e instanceof Error ? e.message : e}`);
+      }
+    });
+  } else {
+    lines.push("MediaStream: null");
+  }
+
+  lines.push("");
+  try {
+    const merged = await gatherVideoDevicesForPicker();
+    lines.push(`gatherVideoDevicesForPicker (dropdown entries excl. Auto): ${merged.length}`);
+    merged.forEach((m, i) => {
+      lines.push(`  merged[${i}] idLen=${m.deviceId.length} label=${m.label.slice(0, 48)}`);
+    });
+  } catch (e) {
+    lines.push(`gatherVideoDevicesForPicker ERROR: ${e instanceof Error ? e.message : e}`);
+  }
+  return lines.join("\n");
+}
+
+async function updateCameraDebug() {
+  if (!cameraDebugBody) return;
+  try {
+    cameraDebugBody.textContent = await buildCameraDebugText();
+  } catch (e) {
+    cameraDebugBody.textContent = `updateCameraDebug failed: ${e instanceof Error ? e.stack || e.message : String(e)}`;
+  }
+}
+
+btnCopyDebug?.addEventListener("click", async () => {
+  const text = cameraDebugBody?.textContent ?? "";
+  try {
+    await navigator.clipboard.writeText(text);
+    clearError();
+  } catch {
+    showError("Clipboard blocked — select text in the box manually.");
+  }
+});
+
 function scheduleCameraListRefresh() {
   clearCameraRefreshTimers();
   const delays = [0, 50, 200, 500, 1200, 2500, 4000];
@@ -264,6 +363,7 @@ async function refreshCameraList() {
       cameraSelect.append(fallback);
     }
     updateCameraHint();
+    void updateCameraDebug();
   }
 }
 
@@ -288,12 +388,19 @@ async function attachStream(newStream) {
   if (typeof video.requestVideoFrameCallback === "function") {
     video.requestVideoFrameCallback(() => {
       void refreshCameraList();
+      void updateCameraDebug();
     });
   } else {
-    video.addEventListener("loadeddata", () => void refreshCameraList(), {
-      once: true,
-    });
+    video.addEventListener(
+      "loadeddata",
+      () => {
+        void refreshCameraList();
+        void updateCameraDebug();
+      },
+      { once: true }
+    );
   }
+  void updateCameraDebug();
 }
 
 btnCamera.addEventListener("click", async () => {
@@ -336,11 +443,13 @@ cameraSelect.addEventListener("change", async () => {
 
 navigator.mediaDevices?.addEventListener?.("devicechange", () => {
   void refreshCameraList();
+  void updateCameraDebug();
 });
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     void refreshCameraList();
+    void updateCameraDebug();
   }
 });
 
@@ -348,9 +457,15 @@ btnRefreshCameras?.addEventListener("click", () => {
   clearCameraRefreshTimers();
   void refreshCameraList();
   scheduleCameraListRefresh();
+  void updateCameraDebug();
 });
 
 void refreshCameraList();
+void updateCameraDebug();
+
+window.addEventListener("load", () => {
+  void updateCameraDebug();
+});
 
 function setCaptureReady() {
   const ready = Boolean(stream && video.videoWidth > 0);
@@ -441,6 +556,7 @@ btnStop.addEventListener("click", () => {
   const hasGhost = Boolean(ghostObjectUrl && ghost.src);
   placeholder.classList.toggle("hidden", hasGhost);
   void refreshCameraList();
+  void updateCameraDebug();
 });
 
 applyVideoMirror();

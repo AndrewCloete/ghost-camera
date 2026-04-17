@@ -49,6 +49,14 @@
       </div>
       <p id="camera-hint" class="camera-hint" hidden aria-live="polite"></p>
 
+      <details class="camera-debug" id="camera-debug" open>
+        <summary class="camera-debug-summary">Camera debug (for screenshots)</summary>
+        <pre id="camera-debug-body" class="camera-debug-pre"></pre>
+        <button type="button" class="btn btn-ghost btn-debug-copy" id="btn-copy-debug">
+          Copy debug to clipboard
+        </button>
+      </details>
+
       <div class="row">
         <label class="lbl" for="opacity">Ghost opacity</label>
         <input type="range" id="opacity" min="0" max="100" value="45" />

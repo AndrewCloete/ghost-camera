@@ -1,4 +1,4 @@
-const CACHE = "ghost-photo-v9";
+const CACHE = "ghost-photo-v10";
 const ASSETS = [
   "./",
   "./index.html",
