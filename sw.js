@@ -1,10 +1,9 @@
-const CACHE = "ghost-photo-v6";
+const CACHE = "ghost-photo-v7";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
-  "./vendor/exifr.js",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",

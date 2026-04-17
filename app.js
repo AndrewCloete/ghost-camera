@@ -12,9 +12,6 @@ const scaleEl = document.getElementById("scale");
 const mirrorCameraEl = document.getElementById("mirror-camera");
 const mirrorEl = document.getElementById("mirror");
 const err = document.getElementById("err");
-const exifPanel = document.getElementById("exif-panel");
-const exifDl = document.getElementById("exif-dl");
-const exifEmpty = document.getElementById("exif-empty");
 const cameraSelect = document.getElementById("camera-select");
 
 const CAMERA_STORAGE_KEY = "ghost-photo-device-id";
@@ -62,125 +59,6 @@ function revokeGhostUrl() {
   }
 }
 
-/* global exifr */
-const exifrLib = typeof globalThis.exifr !== "undefined" ? globalThis.exifr : undefined;
-
-const EXIF_ROWS = [
-  ["Make", "Camera make"],
-  ["Model", "Camera model"],
-  ["LensMake", "Lens make"],
-  ["LensModel", "Lens"],
-  ["FocalLength", "Focal length"],
-  ["FocalLengthIn35mmFormat", "Focal length (35mm)"],
-  ["FNumber", "Aperture"],
-  ["ExposureTime", "Shutter"],
-  ["ISO", "ISO"],
-  ["ExposureProgram", "Exposure program"],
-  ["ExposureMode", "Exposure mode"],
-  ["ExposureCompensation", "Exposure compensation"],
-  ["MeteringMode", "Metering"],
-  ["WhiteBalance", "White balance"],
-  ["Flash", "Flash"],
-  ["DateTimeOriginal", "Date (original)"],
-  ["CreateDate", "Date (created)"],
-  ["ModifyDate", "Date (modified)"],
-  ["Orientation", "Orientation"],
-];
-
-function formatExifValue(key, val) {
-  if (Array.isArray(val) && val.length > 0) {
-    val = val[0];
-  }
-  if (val == null || val === "") return null;
-  if (typeof val === "object" && val instanceof Date) {
-    return val.toLocaleString();
-  }
-  if (key === "FNumber" && typeof val === "number") {
-    const n = val % 1 ? val.toFixed(1) : String(val);
-    return `f/${n}`;
-  }
-  if (key === "ExposureTime" && typeof val === "number") {
-    if (val >= 1) return `${val}s`;
-    const inv = Math.round(1 / val);
-    return inv > 0 ? `1/${inv}s` : String(val);
-  }
-  if (
-    (key === "FocalLength" || key === "FocalLengthIn35mmFormat") &&
-    typeof val === "number"
-  ) {
-    const n = val % 1 ? val.toFixed(1) : String(val);
-    return `${n} mm`;
-  }
-  if (typeof val === "number" && Number.isFinite(val)) {
-    return String(val);
-  }
-  return String(val);
-}
-
-function clearExifPanel() {
-  exifDl.innerHTML = "";
-  exifEmpty.hidden = true;
-  exifEmpty.textContent = "";
-  exifPanel.hidden = true;
-}
-
-function showExifMessage(message) {
-  exifDl.innerHTML = "";
-  exifEmpty.textContent = message;
-  exifEmpty.hidden = false;
-  exifPanel.hidden = false;
-}
-
-function renderExifData(data) {
-  exifEmpty.hidden = true;
-  exifDl.innerHTML = "";
-  for (const [key, label] of EXIF_ROWS) {
-    if (!(key in data)) continue;
-    const formatted = formatExifValue(key, data[key]);
-    if (formatted == null) continue;
-    const dt = document.createElement("dt");
-    dt.textContent = label;
-    const dd = document.createElement("dd");
-    dd.textContent = formatted;
-    exifDl.append(dt, dd);
-  }
-  if (data.latitude != null && data.longitude != null) {
-    const dt = document.createElement("dt");
-    dt.textContent = "GPS";
-    const dd = document.createElement("dd");
-    dd.textContent = `${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`;
-    exifDl.append(dt, dd);
-  }
-  if (!exifDl.children.length) {
-    showExifMessage("No camera fields in EXIF (stripped or minimal).");
-    return;
-  }
-  exifPanel.hidden = false;
-}
-
-async function loadExifForFile(f) {
-  clearExifPanel();
-  if (!exifrLib) {
-    showExifMessage("EXIF library missing.");
-    return;
-  }
-  try {
-    const data = await exifrLib.parse(f, { mergeOutput: true });
-    if (!data || typeof data !== "object") {
-      showExifMessage("No EXIF in file (or stripped).");
-      return;
-    }
-    const keys = Object.keys(data).filter((k) => k !== "errors");
-    if (keys.length === 0) {
-      showExifMessage("No EXIF in file (or stripped).");
-      return;
-    }
-    renderExifData(data);
-  } catch {
-    showExifMessage("No EXIF (unsupported format like PNG, or stripped).");
-  }
-}
-
 file.addEventListener("change", () => {
   const f = file.files?.[0];
   if (!f) return;
@@ -190,7 +68,6 @@ file.addEventListener("change", () => {
   ghost.src = ghostObjectUrl;
   ghost.alt = "Reference overlay";
   setGhostVisible(true);
-  void loadExifForFile(f);
   file.value = "";
 });
 
@@ -199,7 +76,6 @@ btnClear.addEventListener("click", () => {
   ghost.removeAttribute("src");
   ghost.alt = "";
   setGhostVisible(false);
-  clearExifPanel();
 });
 
 opacityEl.addEventListener("input", applyGhostStyles);
